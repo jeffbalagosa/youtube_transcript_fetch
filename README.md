@@ -10,17 +10,35 @@ This Python script extracts transcripts from YouTube videos and prints them to t
 
 ## Prerequisites
 - Python 3.x
-- youtube_transcript_api library
 - (Optional) xclip for clipboard support on Linux
 
 ## Installation
 
-1. **Install Python dependencies**:
+1. **Clone the repository** (if applicable) or copy the files to your working directory:
+   - `main.py`
+   - `README.md`
+   - `requirements.txt`
+   - `.gitignore`
+
+2. **Set up a virtual environment**:
    ```bash
-   pip install youtube_transcript_api
+   python3 -m venv .venv
+   ```
+   - On Linux/macOS: Activate it with:
+     ```bash
+     source .venv/bin/activate
+     ```
+   - On Windows: Activate it with:
+     ```bash
+     .venv\Scripts\activate
+     ```
+
+3. **Install dependencies from requirements.txt**:
+   ```bash
+   pip install -r requirements.txt
    ```
 
-2. **Install xclip (Linux only, for clipboard support)**:
+4. **Install xclip (Linux only, for clipboard support)**:
    - On Ubuntu/Debian:
      ```bash
      sudo apt-get install xclip
@@ -36,10 +54,10 @@ This Python script extracts transcripts from YouTube videos and prints them to t
 
 ## Usage
 
-Run the script from the command line with a YouTube URL as an argument:
+Run the script from the command line with a YouTube URL as an argument (ensure the virtual environment is activated):
 
 ```bash
-python3 main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
 ### Output Example
@@ -50,15 +68,15 @@ python3 main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ### Piping to Clipboard
 - **Linux (with xclip)**:
   ```bash
-  python3 main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" | xclip -selection clipboard
+  python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" | xclip -selection clipboard
   ```
 - **macOS**:
   ```bash
-  python3 main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" | pbcopy
+  python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" | pbcopy
   ```
 - **Windows (PowerShell)**:
   ```bash
-  python3 main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" | clip
+  python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" | clip
   ```
 
 After running with clipboard piping, paste the transcript using Ctrl+V (or Cmd+V on macOS).
@@ -68,11 +86,19 @@ After running with clipboard piping, paste the transcript using Ctrl+V (or Cmd+V
 - Requires an internet connection
 - May encounter rate limits with excessive use
 - Supports various YouTube URL formats (watch?v=, youtu.be/, embed/)
+- The virtual environment keeps dependencies isolated from your system Python
 
 ## Troubleshooting
 - If you get an error about the video ID, check that the URL is valid
 - If no transcript is available, you'll see an error message from the API
-- Ensure all dependencies are installed correctly
+- Ensure the virtual environment is activated and dependencies are installed (`pip list` to check)
+- If dependencies fail to install, try updating pip: `pip install --upgrade pip`
+
+## Deactivating the Virtual Environment
+When you're done, deactivate the virtual environment:
+```bash
+deactivate
+```
 
 ## License
 This script is provided as-is for personal use. See the [youtube_transcript_api documentation](https://pypi.org/project/youtube-transcript-api/) for its licensing terms.
