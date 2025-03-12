@@ -1,12 +1,10 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 import sys
 import re
-from datetime import datetime
 
 
 def get_video_id(url):
     """Extract video ID from YouTube URL"""
-    # Regular expressions to match different YouTube URL formats
     patterns = [
         r"(?:v=|\/)([0-9A-Za-z_-]{11}).*",
         r"(?:embed\/)([0-9A-Za-z_-]{11})",
@@ -20,7 +18,7 @@ def get_video_id(url):
     raise ValueError("Could not extract video ID from URL")
 
 
-def download_transcript(youtube_url):
+def print_transcript(youtube_url):
     try:
         # Get video ID from URL
         video_id = get_video_id(youtube_url)
@@ -28,21 +26,20 @@ def download_transcript(youtube_url):
         # Get transcript
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
 
-        # Create filename with current timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"transcript_{video_id}_{timestamp}.txt"
+        # Build full transcript string without line breaks
+        full_transcript = ""
+        for entry in transcript:
+            time = entry["start"]
+            minutes = int(time // 60)
+            seconds = int(time % 60)
+            text = entry["text"].replace(
+                "\n", " "
+            )  # Replace any existing newlines with spaces
+            full_transcript += f"[{minutes:02d}:{seconds:02d}] {text} "
 
-        # Write transcript to file
-        with open(filename, "w", encoding="utf-8") as file:
-            for entry in transcript:
-                # Format: [timestamp] text
-                time = entry["start"]
-                minutes = int(time // 60)
-                seconds = int(time % 60)
-                text = entry["text"]
-                file.write(f"[{minutes:02d}:{seconds:02d}] {text}\n")
+        # Print as a single line, removing trailing space
+        print(full_transcript.strip())
 
-        print(f"Transcript successfully saved to {filename}")
         return True
 
     except Exception as e:
@@ -57,7 +54,7 @@ def main():
         sys.exit(1)
 
     youtube_url = sys.argv[1]
-    download_transcript(youtube_url)
+    print_transcript(youtube_url)
 
 
 if __name__ == "__main__":
