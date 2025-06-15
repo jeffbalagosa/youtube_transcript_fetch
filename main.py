@@ -11,19 +11,25 @@ import re, sys, requests, xml.etree.ElementTree as ET
 from typing import List, Dict
 
 # 3rd-party deps
-from yt_dlp import YoutubeDL           # <-- new
-from youtube_transcript_api import (    # unchanged
-    YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled,
+from yt_dlp import YoutubeDL  # <-- new
+from youtube_transcript_api import (  # unchanged
+    YouTubeTranscriptApi,
+    NoTranscriptFound,
+    TranscriptsDisabled,
 )
+
 
 # ---------- helpers ------------------------------------------------------ #
 def vid(url: str) -> str:
-    patts = [r"(?:v=|\/)([0-9A-Za-z_-]{11})(?:\?|&|/|$)",
-             r"(?:youtu\.be\/)([0-9A-Za-z_-]{11})(?:\?|&|/|$)"]
+    patts = [
+        r"(?:v=|\/)([0-9A-Za-z_-]{11})(?:\?|&|/|$)",
+        r"(?:youtu\.be\/)([0-9A-Za-z_-]{11})(?:\?|&|/|$)",
+    ]
     for p in patts:
-        if (m := re.search(p, url)):
+        if m := re.search(p, url):
             return m.group(1)
     raise ValueError("Cannot find YouTube video ID in URL.")
+
 
 def pretty(lines: List[Dict]) -> str:
     segs = []
@@ -32,6 +38,7 @@ def pretty(lines: List[Dict]) -> str:
         segs.append(f"[{m:02d}:{s:02d}] {e['text'].strip()}")
     return " ".join(segs)
 
+
 # ---------- 1. timedtext scrape ----------------------------------------- #
 def scrape_manual(video_id: str, lang="en") -> List[Dict]:
     url = f"https://video.google.com/timedtext?lang={lang}&v={video_id}"
@@ -39,11 +46,14 @@ def scrape_manual(video_id: str, lang="en") -> List[Dict]:
     if not r.ok or not r.text.strip():
         raise RuntimeError("No manual captions.")
     root = ET.fromstring(r.content)
-    out = [{"start": n.attrib["start"], "text": (n.text or "").replace("\n", " ")}
-           for n in root.findall("text")]
+    out = [
+        {"start": n.attrib["start"], "text": (n.text or "").replace("\n", " ")}
+        for n in root.findall("text")
+    ]
     if not out:
         raise RuntimeError("Empty manual track.")
     return out
+
 
 # ---------- 2. yt-dlp extractor ----------------------------------------- #
 def dlp_captions(url: str, lang="en") -> List[Dict]:
@@ -63,23 +73,29 @@ def dlp_captions(url: str, lang="en") -> List[Dict]:
                     return _parse_caption_url(t["url"], t["ext"])
     raise RuntimeError("yt-dlp found no captions.")
 
+
 def _parse_caption_url(url: str, ext: str) -> List[Dict]:
     txt = requests.get(url, timeout=10).text
-    if ext == "vtt":                                       # very lax VTT → plain
+    if ext == "vtt":  # very lax VTT → plain
         entries = []
         for block in txt.split("\n\n"):
             if "-->" not in block:
                 continue
             timestr, *lines = block.strip().splitlines()
             h, m, s = map(float, re.sub("[^0-9:.]", "", timestr).split(":"))
-            start = h*3600 + m*60 + s
+            start = h * 3600 + m * 60 + s
             entries.append({"start": start, "text": " ".join(lines)})
         return entries
-    else:                                                  # srv1/3 = XML
+    else:  # srv1/3 = XML
         root = ET.fromstring(txt.encode())
-        return [{"start": n.attrib["t"]/1000 if 't' in n.attrib else n.attrib["start"],
-                 "text": (n.text or "").replace("\n", " ")}
-                for n in root.findall(".//text")]
+        return [
+            {
+                "start": n.attrib["t"] / 1000 if "t" in n.attrib else n.attrib["start"],
+                "text": (n.text or "").replace("\n", " "),
+            }
+            for n in root.findall(".//text")
+        ]
+
 
 # ---------- 3. youtube-transcript-api ----------------------------------- #
 def api_captions(video_id: str, langs=("en", "en-US", "en-GB")) -> List[Dict]:
@@ -88,7 +104,8 @@ def api_captions(video_id: str, langs=("en", "en-US", "en-GB")) -> List[Dict]:
             return YouTubeTranscriptApi.get_transcript(video_id, languages=[l])
         except (NoTranscriptFound, TranscriptsDisabled):
             continue
-    return YouTubeTranscriptApi.get_transcript(video_id)   # let it throw
+    return YouTubeTranscriptApi.get_transcript(video_id)  # let it throw
+
 
 # ---------- main --------------------------------------------------------- #
 def main():
@@ -96,9 +113,11 @@ def main():
         sys.exit("Usage: python main.py <YouTube URL>")
     url = sys.argv[1]
     vid_id = vid(url)
-    for step in (lambda: scrape_manual(vid_id),
-                 lambda: dlp_captions(url),
-                 lambda: api_captions(vid_id)):
+    for step in (
+        lambda: scrape_manual(vid_id),
+        lambda: dlp_captions(url),
+        lambda: api_captions(vid_id),
+    ):
         try:
             lines = step()
             print(pretty(lines))
@@ -106,6 +125,7 @@ def main():
         except Exception:
             continue
     sys.exit("❌  Couldn’t fetch captions from any source.")
+
 
 if __name__ == "__main__":
     main()
