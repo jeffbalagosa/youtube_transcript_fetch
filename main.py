@@ -7,7 +7,7 @@ Hybrid YouTube transcript fetcher
 Outputs one line: [MM:SS] text …
 """
 
-import re, sys, requests, xml.etree.ElementTree as ET
+import re, sys, json, requests, xml.etree.ElementTree as ET
 from typing import List, Dict
 
 # 3rd-party deps
@@ -39,6 +39,24 @@ def pretty(lines: List[Dict]) -> str:
     return " ".join(segs)
 
 
+# ---------- metadata ----------------------------------------------------- #
+def get_meta_and_info(url: str) -> tuple[Dict[str, str], Dict]:
+    """
+    Return ({"title": str, "channel": str}, info_dict).
+    Falls back to empty strings on failure but preserves info dict for reuse.
+    """
+    try:
+        opts = {"skip_download": True, "quiet": True}
+        with YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        title = info.get("title") or ""
+        # Prefer 'channel' when available; fall back to 'uploader'
+        channel = (info.get("channel") or info.get("uploader") or "")
+        return {"title": title, "channel": channel}, info
+    except Exception:
+        return {"title": "", "channel": ""}, {}
+
+
 # ---------- 1. timedtext scrape ----------------------------------------- #
 def scrape_manual(video_id: str, lang="en") -> List[Dict]:
     url = f"https://video.google.com/timedtext?lang={lang}&v={video_id}"
@@ -56,10 +74,12 @@ def scrape_manual(video_id: str, lang="en") -> List[Dict]:
 
 
 # ---------- 2. yt-dlp extractor ----------------------------------------- #
-def dlp_captions(url: str, lang="en") -> List[Dict]:
-    opts = {"skip_download": True, "quiet": True}
-    with YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+def dlp_captions(url: str, lang="en", info: Dict = None) -> List[Dict]:
+    if info is None:
+        opts = {"skip_download": True, "quiet": True}
+        with YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+
     for src in ("subtitles", "automatic_captions"):
         tracks = info.get(src, {})
         if not tracks:
@@ -90,7 +110,8 @@ def _parse_caption_url(url: str, ext: str) -> List[Dict]:
         root = ET.fromstring(txt.encode())
         return [
             {
-                "start": n.attrib["t"] / 1000 if "t" in n.attrib else n.attrib["start"],
+                "start": (n.attrib["t"] / 1000 if "t" in n.attrib
+                         else n.attrib["start"]),
                 "text": (n.text or "").replace("\n", " "),
             }
             for n in root.findall(".//text")
@@ -99,9 +120,9 @@ def _parse_caption_url(url: str, ext: str) -> List[Dict]:
 
 # ---------- 3. youtube-transcript-api ----------------------------------- #
 def api_captions(video_id: str, langs=("en", "en-US", "en-GB")) -> List[Dict]:
-    for l in langs:
+    for lang in langs:
         try:
-            return YouTubeTranscriptApi.get_transcript(video_id, languages=[l])
+            return YouTubeTranscriptApi.get_transcript(video_id, languages=[lang])
         except (NoTranscriptFound, TranscriptsDisabled):
             continue
     return YouTubeTranscriptApi.get_transcript(video_id)  # let it throw
@@ -109,22 +130,45 @@ def api_captions(video_id: str, langs=("en", "en-US", "en-GB")) -> List[Dict]:
 
 # ---------- main --------------------------------------------------------- #
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("Usage: python main.py <YouTube URL>")
+    if len(sys.argv) < 2:
+        sys.exit("Usage: python main.py <YouTube URL> [--json]")
     url = sys.argv[1]
+    want_json = any(arg == "--json" for arg in sys.argv[2:])
+
+    # Fetch metadata up front (best effort; won't crash the run if it fails)
+    meta, info = get_meta_and_info(url)
+
     vid_id = vid(url)
     for step in (
         lambda: scrape_manual(vid_id),
-        lambda: dlp_captions(url),
+        lambda: dlp_captions(url, info=info),
         lambda: api_captions(vid_id),
     ):
         try:
             lines = step()
-            print(pretty(lines))
+            transcript = pretty(lines)
+            if want_json:
+                print(json.dumps(
+                    {
+                        "title": meta["title"],
+                        "channel": meta["channel"],
+                        "transcript": transcript
+                    },
+                    ensure_ascii=False
+                ))
+            else:
+                # Human-friendly default that still pipes fine
+                if meta["title"] or meta["channel"]:
+                    # Print on separate lines so first token remains text when piping
+                    if meta["title"]:
+                        print(f"Title: {meta['title']}")
+                    if meta["channel"]:
+                        print(f"Channel: {meta['channel']}")
+                print(transcript)
             return
         except Exception:
             continue
-    sys.exit("❌  Couldn’t fetch captions from any source.")
+    sys.exit("❌  Couldn't fetch captions from any source.")
 
 
 if __name__ == "__main__":
