@@ -7,6 +7,7 @@ Hybrid YouTube transcript fetcher
 Outputs one line: [MM:SS] text …
 """
 
+import argparse
 import re, sys, json, requests, xml.etree.ElementTree as ET
 from typing import List, Dict
 
@@ -128,12 +129,30 @@ def api_captions(video_id: str, langs=("en", "en-US", "en-GB")) -> List[Dict]:
     return YouTubeTranscriptApi.get_transcript(video_id)  # let it throw
 
 
+# ---------- arg parsing -------------------------------------------------- #
+def parse_args(argv: List[str] | None = None):
+    parser = argparse.ArgumentParser(
+        description="Fetch YouTube transcripts with multiple fallbacks."
+    )
+    parser.add_argument("url", help="YouTube video URL to fetch transcripts from.")
+    parser.add_argument(
+        "--json", dest="json", action="store_true", help="Emit transcript as JSON."
+    )
+    parser.add_argument(
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Show warnings emitted by the tool and dependencies.",
+    )
+    return parser.parse_args(argv)
+
+
 # ---------- main --------------------------------------------------------- #
 def main():
-    if len(sys.argv) < 2:
-        sys.exit("Usage: python main.py <YouTube URL> [--json]")
-    url = sys.argv[1]
-    want_json = any(arg == "--json" for arg in sys.argv[2:])
+    args = parse_args()
+    url = args.url
+    want_json = args.json
+    verbose = args.verbose
 
     # Fetch metadata up front (best effort; won't crash the run if it fails)
     meta, info = get_meta_and_info(url)

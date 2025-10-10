@@ -32,6 +32,22 @@ class TestCliArguments(unittest.TestCase):
         self.assertFalse(args.json)
         self.assertTrue(args.verbose)
 
+    def test_parse_args_requires_url(self):
+        """Missing positional URL should exit with an error."""
+        main = load_module()
+        parse_args = main.parse_args
+
+        with self.assertRaises(SystemExit):
+            parse_args([])
+
+    def test_parse_args_rejects_unknown_flag(self):
+        """Unknown flags should trigger argparse error (SystemExit)."""
+        main = load_module()
+        parse_args = main.parse_args
+
+        with self.assertRaises(SystemExit):
+            parse_args(["https://youtu.be/dQw4w9WgXcQ", "--bogus"])
+
 
 if __name__ == "__main__":
     unittest.main()

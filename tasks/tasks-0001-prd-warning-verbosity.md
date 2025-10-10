@@ -1,7 +1,7 @@
 ## Relevant Files
 
-- `main.py` - CLI entry point where warning emission and argument parsing live.
-- `tests/test_main_cli.py` - New test module covering flag parsing and warning behavior (to be created).
+- `main.py` - CLI entry point; now exposes `parse_args` for CLI flag handling.
+- `tests/test_main_cli.py` - Unittest module covering flag parsing and warning behavior.
 - `README.md` - Update usage docs to describe the `--verbose` option with example output.
 
 ### Notes
@@ -11,6 +11,8 @@
 - Current code does not invoke `warnings` or logging directly; transcript flow uses `print`, while dependency warnings likely surface via their own logging.
 - Expected warning scenarios for tests: (a) simulated internal warnings via `warnings.warn`, (b) `yt_dlp` style logger warnings emitted to `stderr`, and (c) `youtube_transcript_api` raising warnings (simulate through mocked logger/print).
 - TDD plan: (1) failing test for default run suppressing mocked warnings, (2) failing test for `--verbose` surfacing those warnings, (3) failing test ensuring JSON output remains clean while warnings go to `stderr`, (4) test verifying transcript output unaffected in both modes.
+- Use `python -m unittest` to execute the CLI-focused tests added in `tests/test_main_cli.py`.
+- Additional CLI tests cover missing URL and unknown flag errors to ensure argparse behavior is enforced.
 
 ## Tasks
 
@@ -20,8 +22,8 @@
   - [x] 1.3 Sketch TDD plan mapping each scenario to a specific test case.
 - [ ] 2.0 Extend CLI argument handling to add `--verbose` without breaking existing flags  
   - [x] 2.1 Write a failing test ensuring `--verbose` is recognized alongside existing positional args and `--json`.  
-  - [ ] 2.2 Implement or refactor argument parsing so the new test passes (consider adopting `argparse`).  
-  - [ ] 2.3 Run tests to confirm parsing behavior and adjust for edge cases (duplicate flags, unknown flags).
+  - [x] 2.2 Implement or refactor argument parsing so the new test passes (consider adopting `argparse`).  
+  - [x] 2.3 Run tests to confirm parsing behavior and adjust for edge cases (duplicate flags, unknown flags).
 - [ ] 3.0 Suppress warnings by default and restore current behavior when `--verbose` is set  
   - [ ] 3.1 Add failing tests asserting no warnings are emitted without `--verbose`, and warnings appear when it is passed.  
   - [ ] 3.2 Implement suppression logic (e.g., configure `warnings`, logger levels, and dependency options) to satisfy tests.  
