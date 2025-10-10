@@ -8,6 +8,8 @@ Outputs one line: [MM:SS] text …
 """
 
 import argparse
+import logging
+import warnings
 import re, sys, json, requests, xml.etree.ElementTree as ET
 from typing import List, Dict
 
@@ -147,12 +149,26 @@ def parse_args(argv: List[str] | None = None):
     return parser.parse_args(argv)
 
 
+# ---------- runtime config ---------------------------------------------- #
+def configure_runtime(verbose: bool) -> None:
+    """
+    Tune warnings and logging output depending on verbosity preference.
+    """
+    warnings.simplefilter("default" if verbose else "ignore")
+    log_level = logging.WARNING if verbose else logging.ERROR
+    logging.basicConfig(level=log_level, force=True)
+    for name in ("yt_dlp", "youtube_transcript_api"):
+        logging.getLogger(name).setLevel(log_level)
+
+
 # ---------- main --------------------------------------------------------- #
 def main():
     args = parse_args()
     url = args.url
     want_json = args.json
     verbose = args.verbose
+
+    configure_runtime(verbose)
 
     # Fetch metadata up front (best effort; won't crash the run if it fails)
     meta, info = get_meta_and_info(url)

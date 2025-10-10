@@ -1,6 +1,10 @@
+import contextlib
 import importlib
+import io
 import types
 import unittest
+import warnings
+from unittest import mock
 
 
 def load_module():
@@ -47,6 +51,62 @@ class TestCliArguments(unittest.TestCase):
 
         with self.assertRaises(SystemExit):
             parse_args(["https://youtu.be/dQw4w9WgXcQ", "--bogus"])
+
+
+class TestWarningBehavior(unittest.TestCase):
+    url = "https://youtu.be/dQw4w9WgXcQ"
+
+    def _run_main(self, *, verbose: bool, want_json: bool = False):
+        main = load_module()
+        fake_args = types.SimpleNamespace(url=self.url, json=want_json, verbose=verbose)
+
+        def manual_fail(_video_id: str):
+            warnings.warn("manual warning")
+            raise RuntimeError("No manual captions.")
+
+        def dlp_success(_url: str, lang: str = "en", info=None):
+            warnings.warn("dlp warning")
+            return [{"start": 0, "text": "hello world"}]
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            with mock.patch.object(main, "parse_args", return_value=fake_args), mock.patch.object(
+                main, "get_meta_and_info", return_value=({"title": "", "channel": ""}, {})
+            ), mock.patch.object(
+                main, "scrape_manual", side_effect=manual_fail
+            ), mock.patch.object(
+                main, "dlp_captions", side_effect=dlp_success
+            ), mock.patch.object(
+                main, "api_captions", side_effect=AssertionError("API fallback should not run")
+            ) as api_mock, contextlib.redirect_stdout(
+                stdout
+            ), contextlib.redirect_stderr(
+                stderr
+            ):
+                main.main()
+        return stdout.getvalue(), stderr.getvalue(), api_mock
+
+    def test_warnings_suppressed_without_verbose(self):
+        """Default runs should not emit warnings to stderr."""
+        out, err, api_mock = self._run_main(verbose=False)
+        self.assertIn("[00:00]", out)
+        self.assertEqual(
+            "",
+            err.strip(),
+            "Warnings should be suppressed when --verbose is not provided.",
+        )
+        self.assertEqual(0, api_mock.call_count)
+
+    def test_warnings_visible_with_verbose(self):
+        """Verbose runs surface warnings."""
+        out, err, api_mock = self._run_main(verbose=True)
+        self.assertIn("[00:00]", out)
+        self.assertIn("manual warning", err)
+        self.assertIn("dlp warning", err)
+        self.assertEqual(0, api_mock.call_count)
 
 
 if __name__ == "__main__":
