@@ -63,6 +63,18 @@ python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 [00:00] We're no strangers to love [00:04] You know the rules and so do I ...
 ```
 
+### Verbose mode
+
+Warnings from the tool and its dependencies are muted by default so transcript output stays clean. Add `--verbose` when you need to see them (helpful for debugging fallback behavior or network hiccups). Warnings are written to `stderr`, so JSON output on `stdout` stays valid.
+
+```bash
+# Default run (warnings suppressed)
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+# Surface warnings while keeping JSON output intact
+python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --json --verbose
+```
+
 ---
 
 ## Pipe to Clipboard

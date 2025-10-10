@@ -108,6 +108,14 @@ class TestWarningBehavior(unittest.TestCase):
         self.assertIn("dlp warning", err)
         self.assertEqual(0, api_mock.call_count)
 
+    def test_json_output_not_polluted_by_warnings(self):
+        """When requesting JSON, warnings should still go to stderr."""
+        out, err, api_mock = self._run_main(verbose=True, want_json=True)
+        self.assertTrue(out.strip().startswith("{"))
+        self.assertIn("manual warning", err)
+        self.assertEqual(0, api_mock.call_count)
+
 
 if __name__ == "__main__":
     unittest.main()
+

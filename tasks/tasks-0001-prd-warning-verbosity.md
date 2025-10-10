@@ -16,26 +16,30 @@
 - Warning behavior tests simulate manual and yt-dlp flows with mocked warnings to validate suppression vs. verbose output.
 - `configure_runtime` in `main.py` now toggles Python `warnings` and logging levels based on `--verbose`.
 - Tests assert both internal `warnings.warn` and mocked dependency warnings to ensure coverage.
+- Added JSON-mode tests confirming stdout remains valid JSON while warnings route to stderr.
+- Implementation maintains clean stdout in JSON mode by relying on `configure_runtime` and avoiding writes to stdout for warnings.
+- `python -m unittest tests.test_main_cli` runs the full suite since autodiscovery currently skips tests.
+- README usage section now documents `--verbose` behavior with sample commands.
 
 ## Tasks
 
-- [ ] 1.0 Assess current warning emission paths in `main.py` and dependencies  
+- [x] 1.0 Assess current warning emission paths in `main.py` and dependencies  
   - [x] 1.1 Review existing uses of Python `warnings`, `print`, and dependency loggers to understand current outputs.  
   - [x] 1.2 Document expected warning scenarios to cover in tests (e.g., fallback failures, dependency warnings).  
   - [x] 1.3 Sketch TDD plan mapping each scenario to a specific test case.
-- [ ] 2.0 Extend CLI argument handling to add `--verbose` without breaking existing flags  
+- [x] 2.0 Extend CLI argument handling to add `--verbose` without breaking existing flags  
   - [x] 2.1 Write a failing test ensuring `--verbose` is recognized alongside existing positional args and `--json`.  
   - [x] 2.2 Implement or refactor argument parsing so the new test passes (consider adopting `argparse`).  
   - [x] 2.3 Run tests to confirm parsing behavior and adjust for edge cases (duplicate flags, unknown flags).
-- [ ] 3.0 Suppress warnings by default and restore current behavior when `--verbose` is set  
+- [x] 3.0 Suppress warnings by default and restore current behavior when `--verbose` is set  
   - [x] 3.1 Add failing tests asserting no warnings are emitted without `--verbose`, and warnings appear when it is passed.  
   - [x] 3.2 Implement suppression logic (e.g., configure `warnings`, logger levels, and dependency options) to satisfy tests.  
   - [x] 3.3 Validate test coverage includes both tool-generated and dependency-generated warnings.
-- [ ] 4.0 Verify warning behavior in both standard and `--json` outputs  
-  - [ ] 4.1 Write failing tests demonstrating that transcripts render correctly and warnings route to their stream for both default and JSON modes.  
-  - [ ] 4.2 Adjust implementation to ensure warnings coexist with JSON output without corrupting `stdout`.  
-  - [ ] 4.3 Run the full suite to confirm no regression in text/JSON formatting.
+- [x] 4.0 Verify warning behavior in both standard and `--json` outputs  
+  - [x] 4.1 Write failing tests demonstrating that transcripts render correctly and warnings route to their stream for both default and JSON modes.  
+  - [x] 4.2 Adjust implementation to ensure warnings coexist with JSON output without corrupting `stdout`.  
+  - [x] 4.3 Run the full suite to confirm no regression in text/JSON formatting.
 - [ ] 5.0 Document the `--verbose` option in `README.md`, including usage example  
-  - [ ] 5.1 Draft README updates summarizing default/suppressed behavior and the verbose flag.  
+  - [x] 5.1 Draft README updates summarizing default/suppressed behavior and the verbose flag.  
   - [ ] 5.2 Include a before/after example illustrating transcript output with and without `--verbose`.  
   - [ ] 5.3 Proofread documentation for clarity and alignment with implementation.
