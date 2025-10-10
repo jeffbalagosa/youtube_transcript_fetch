@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+# Common project excludes
+exclude = [".git", "__pycache__", "build", "dist", "*.pyc", "venv", "env"]
+
+# Auto-fixable rules (allow ruff to fix where possible)
+fix = true
+
+[tool.ruff.lint]
+extend-select = ["E", "F", "W", "C9"]
+per-file-ignores = { "tests/*" = ["D", "S101"] }

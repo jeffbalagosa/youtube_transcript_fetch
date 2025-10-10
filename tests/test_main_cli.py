@@ -23,10 +23,15 @@ class TestCliArguments(unittest.TestCase):
         self.assertIsInstance(
             parse_args,
             types.FunctionType,
-            msg="Expected main.parse_args to be a function handling CLI arguments.",
+            msg=(
+                "Expected main.parse_args to be a function handling CLI "
+                "arguments."
+            ),
         )
 
-        args = parse_args(["https://youtu.be/dQw4w9WgXcQ", "--json", "--verbose"])
+        args = parse_args(
+            ["https://youtu.be/dQw4w9WgXcQ", "--json", "--verbose"]
+        )
         self.assertEqual(args.url, "https://youtu.be/dQw4w9WgXcQ")
         self.assertTrue(args.json)
         self.assertTrue(args.verbose)
@@ -59,13 +64,17 @@ class TestWarningBehavior(unittest.TestCase):
 
     def _run_main(self, *, verbose: bool, want_json: bool = False):
         main = load_module()
-        fake_args = types.SimpleNamespace(url=self.url, json=want_json, verbose=verbose)
+        fake_args = types.SimpleNamespace(
+            url=self.url, json=want_json, verbose=verbose
+        )
 
         def manual_fail(_video_id: str):
             warnings.warn("manual warning")
             raise RuntimeError("No manual captions.")
 
-        def dlp_success(_url: str, lang: str = "en", info=None, verbose: bool = False):
+        def dlp_success(
+            _url: str, lang: str = "en", info=None, verbose: bool = False
+        ):
             warnings.warn("dlp warning")
             return [{"start": 0, "text": "hello world"}]
 
@@ -74,20 +83,24 @@ class TestWarningBehavior(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-            with mock.patch.object(main, "parse_args", return_value=fake_args), mock.patch.object(
-                main, "get_meta_and_info", return_value=({"title": "", "channel": ""}, {})
+            with mock.patch.object(
+                main, "parse_args", return_value=fake_args
+            ), mock.patch.object(
+                main,
+                "get_meta_and_info",
+                return_value=({"title": "", "channel": ""}, {}),
             ), mock.patch.object(
                 main, "scrape_manual", side_effect=manual_fail
             ), mock.patch.object(
                 main, "dlp_captions", side_effect=dlp_success
             ), mock.patch.object(
-                main, "api_captions", side_effect=AssertionError("API fallback should not run")
-            ) as api_mock, contextlib.redirect_stdout(
-                stdout
-            ), contextlib.redirect_stderr(
-                stderr
-            ):
-                main.main()
+                main,
+                "api_captions",
+                side_effect=AssertionError("API fallback should not run"),
+            ) as api_mock:
+                with contextlib.redirect_stdout(stdout), \
+                        contextlib.redirect_stderr(stderr):
+                    main.main()
         return stdout.getvalue(), stderr.getvalue(), api_mock
 
     def test_warnings_suppressed_without_verbose(self):
@@ -189,4 +202,3 @@ class TestYtDlpLogger(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

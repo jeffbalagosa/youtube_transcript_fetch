@@ -10,7 +10,11 @@ Outputs one line: [MM:SS] text …
 import argparse
 import logging
 import warnings
-import re, sys, json, requests, xml.etree.ElementTree as ET
+import re
+import sys
+import json
+import requests
+import xml.etree.ElementTree as ET
 from typing import List, Dict
 
 # 3rd-party deps
@@ -83,7 +87,10 @@ def yt_dlp_options(verbose: bool) -> Dict:
 
 
 # ---------- metadata ----------------------------------------------------- #
-def get_meta_and_info(url: str, verbose: bool = False) -> tuple[Dict[str, str], Dict]:
+def get_meta_and_info(
+    url: str,
+    verbose: bool = False,
+) -> tuple[Dict[str, str], Dict]:
     """
     Return ({"title": str, "channel": str}, info_dict).
     Falls back to empty strings on failure but preserves info dict for reuse.
@@ -117,7 +124,12 @@ def scrape_manual(video_id: str, lang="en") -> List[Dict]:
 
 
 # ---------- 2. yt-dlp extractor ----------------------------------------- #
-def dlp_captions(url: str, lang="en", info: Dict = None, verbose: bool = False) -> List[Dict]:
+def dlp_captions(
+    url: str,
+    lang: str = "en",
+    info: Dict = None,
+    verbose: bool = False,
+) -> List[Dict]:
     if info is None:
         opts = yt_dlp_options(verbose)
         with YoutubeDL(opts) as ydl:
@@ -153,8 +165,9 @@ def _parse_caption_url(url: str, ext: str) -> List[Dict]:
         root = ET.fromstring(txt.encode())
         return [
             {
-                "start": (n.attrib["t"] / 1000 if "t" in n.attrib
-                         else n.attrib["start"]),
+                "start": (int(n.attrib["t"]) / 1000)
+                if "t" in n.attrib
+                else n.attrib["start"],
                 "text": (n.text or "").replace("\n", " "),
             }
             for n in root.findall(".//text")
@@ -162,10 +175,14 @@ def _parse_caption_url(url: str, ext: str) -> List[Dict]:
 
 
 # ---------- 3. youtube-transcript-api ----------------------------------- #
-def api_captions(video_id: str, langs=("en", "en-US", "en-GB")) -> List[Dict]:
+def api_captions(
+    video_id: str, langs=("en", "en-US", "en-GB")
+) -> List[Dict]:
     for lang in langs:
         try:
-            return YouTubeTranscriptApi.get_transcript(video_id, languages=[lang])
+            return YouTubeTranscriptApi.get_transcript(
+                video_id, languages=[lang]
+            )
         except (NoTranscriptFound, TranscriptsDisabled):
             continue
     return YouTubeTranscriptApi.get_transcript(video_id)  # let it throw
@@ -176,15 +193,25 @@ def parse_args(argv: List[str] | None = None):
     parser = argparse.ArgumentParser(
         description="Fetch YouTube transcripts with multiple fallbacks."
     )
-    parser.add_argument("url", help="YouTube video URL to fetch transcripts from.")
     parser.add_argument(
-        "--json", dest="json", action="store_true", help="Emit transcript as JSON."
+        "url",
+        help=(
+            "YouTube video URL to fetch transcripts from."
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        dest="json",
+        action="store_true",
+        help="Emit transcript as JSON.",
     )
     parser.add_argument(
         "--verbose",
         dest="verbose",
         action="store_true",
-        help="Show warnings emitted by the tool and dependencies.",
+        help=(
+            "Show warnings emitted by the tool and dependencies."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -234,7 +261,8 @@ def main():
             else:
                 # Human-friendly default that still pipes fine
                 if meta["title"] or meta["channel"]:
-                    # Print on separate lines so first token remains text when piping
+                    # Print on separate lines so first token remains text
+                    # when piping
                     if meta["title"]:
                         print(f"Title: {meta['title']}")
                     if meta["channel"]:
