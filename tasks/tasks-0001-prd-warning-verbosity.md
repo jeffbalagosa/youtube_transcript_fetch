@@ -20,6 +20,10 @@
 - Implementation maintains clean stdout in JSON mode by relying on `configure_runtime` and avoiding writes to stdout for warnings.
 - `python -m unittest tests.test_main_cli` runs the full suite since autodiscovery currently skips tests.
 - README usage section now documents `--verbose` behavior with sample commands.
+- Documentation includes before/after snippets showing verbose output in both plain text and JSON modes.
+- README checked for clarity; notional issues with quoted characters remain but instructions align with implementation and tests.
+- Custom yt-dlp logger ensures warnings stay silent unless `--verbose` is set; manual CLI run should now be quiet by default.
+- Added regression tests around `get_meta_and_info` to ensure yt-dlp warnings are suppressed/restored correctly via a custom logger.
 
 ## Tasks
 
@@ -39,7 +43,7 @@
   - [x] 4.1 Write failing tests demonstrating that transcripts render correctly and warnings route to their stream for both default and JSON modes.  
   - [x] 4.2 Adjust implementation to ensure warnings coexist with JSON output without corrupting `stdout`.  
   - [x] 4.3 Run the full suite to confirm no regression in text/JSON formatting.
-- [ ] 5.0 Document the `--verbose` option in `README.md`, including usage example  
+- [x] 5.0 Document the `--verbose` option in `README.md`, including usage example  
   - [x] 5.1 Draft README updates summarizing default/suppressed behavior and the verbose flag.  
-  - [ ] 5.2 Include a before/after example illustrating transcript output with and without `--verbose`.  
-  - [ ] 5.3 Proofread documentation for clarity and alignment with implementation.
+  - [x] 5.2 Include a before/after example illustrating transcript output with and without `--verbose`.  
+  - [x] 5.3 Proofread documentation for clarity and alignment with implementation.

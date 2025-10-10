@@ -75,6 +75,20 @@ python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 python main.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --json --verbose
 ```
 
+**Example (`--verbose`):**
+
+```
+$ python main.py "<URL>" --verbose
+... (warnings printed to stderr) ...
+[00:00] Transcript continues here ...
+```
+
+```
+$ python main.py "<URL>" --json --verbose
+{"title": "...", "channel": "...", "transcript": "..."}
+... (warnings printed to stderr) ...
+```
+
 ---
 
 ## Pipe to Clipboard

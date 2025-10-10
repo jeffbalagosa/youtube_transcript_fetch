@@ -1,6 +1,7 @@
 import contextlib
 import importlib
 import io
+import sys
 import types
 import unittest
 import warnings
@@ -64,7 +65,7 @@ class TestWarningBehavior(unittest.TestCase):
             warnings.warn("manual warning")
             raise RuntimeError("No manual captions.")
 
-        def dlp_success(_url: str, lang: str = "en", info=None):
+        def dlp_success(_url: str, lang: str = "en", info=None, verbose: bool = False):
             warnings.warn("dlp warning")
             return [{"start": 0, "text": "hello world"}]
 
@@ -114,6 +115,76 @@ class TestWarningBehavior(unittest.TestCase):
         self.assertTrue(out.strip().startswith("{"))
         self.assertIn("manual warning", err)
         self.assertEqual(0, api_mock.call_count)
+
+
+class TestYtDlpLogger(unittest.TestCase):
+    url = "https://youtu.be/dQw4w9WgXcQ"
+
+    @staticmethod
+    def _fake_ydl_factory(log_messages):
+        class FakeYDL:
+            def __init__(self, params):
+                self.params = params
+                log_messages.append(params)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def extract_info(self, url, download=False):
+                logger = self.params.get("logger")
+                if logger:
+                    logger.warning("fake yt_dlp warning")
+                else:
+                    print("fake yt_dlp warning", file=sys.stderr)
+                return {
+                    "title": "Fake Title",
+                    "channel": "Fake Channel",
+                    "subtitles": {},
+                    "automatic_captions": {},
+                }
+
+        return FakeYDL
+
+    def test_get_meta_and_info_suppresses_yt_dlp_warning_without_verbose(self):
+        main = load_module()
+        captured_params = []
+        FakeYDL = self._fake_ydl_factory(captured_params)
+
+        with mock.patch.object(main, "YoutubeDL", FakeYDL):
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                main.configure_runtime(verbose=False)
+                meta, info = main.get_meta_and_info(self.url, verbose=False)
+
+        self.assertEqual("", stderr.getvalue().strip())
+        self.assertEqual("Fake Title", meta["title"])
+        params = captured_params[-1]
+        self.assertTrue(params.get("quiet"))
+        self.assertTrue(params.get("no_warnings"))
+        self.assertIsNotNone(params.get("logger"))
+
+    def test_get_meta_and_info_emits_yt_dlp_warning_with_verbose(self):
+        main = load_module()
+        captured_params = []
+        FakeYDL = self._fake_ydl_factory(captured_params)
+
+        with mock.patch.object(main, "YoutubeDL", FakeYDL):
+            with self.assertLogs("yt_dlp", level="WARNING") as log_ctx:
+                main.configure_runtime(verbose=True)
+                meta, info = main.get_meta_and_info(self.url, verbose=True)
+
+        self.assertTrue(
+            any("fake yt_dlp warning" in entry for entry in log_ctx.output),
+            "Expected yt_dlp warning to be logged in verbose mode.",
+        )
+        self.assertEqual("Fake Title", meta["title"])
+        params = captured_params[-1]
+        self.assertFalse(params.get("quiet"))
+        self.assertFalse(params.get("no_warnings"))
+        self.assertIsNotNone(params.get("logger"))
 
 
 if __name__ == "__main__":

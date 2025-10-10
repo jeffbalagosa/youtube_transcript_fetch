@@ -42,14 +42,54 @@ def pretty(lines: List[Dict]) -> str:
     return " ".join(segs)
 
 
+# ---------- yt-dlp helpers ---------------------------------------------- #
+class YtDlpLogger:
+    """Adapter that honors verbosity preference while preserving errors."""
+
+    def __init__(self, verbose: bool):
+        self.verbose = verbose
+        self._logger = logging.getLogger("yt_dlp")
+
+    def debug(self, msg):
+        if self.verbose:
+            self._logger.debug(msg)
+
+    def info(self, msg):
+        if self.verbose:
+            self._logger.info(msg)
+
+    def warning(self, msg):
+        if self.verbose:
+            self._logger.warning(msg)
+
+    def error(self, msg):
+        self._logger.error(msg)
+
+    def critical(self, msg):
+        self._logger.critical(msg)
+
+    def exception(self, msg):
+        self._logger.exception(msg)
+
+
+def yt_dlp_options(verbose: bool) -> Dict:
+    """Return common yt-dlp options tailored to verbosity preference."""
+    return {
+        "skip_download": True,
+        "quiet": not verbose,
+        "no_warnings": not verbose,
+        "logger": YtDlpLogger(verbose),
+    }
+
+
 # ---------- metadata ----------------------------------------------------- #
-def get_meta_and_info(url: str) -> tuple[Dict[str, str], Dict]:
+def get_meta_and_info(url: str, verbose: bool = False) -> tuple[Dict[str, str], Dict]:
     """
     Return ({"title": str, "channel": str}, info_dict).
     Falls back to empty strings on failure but preserves info dict for reuse.
     """
     try:
-        opts = {"skip_download": True, "quiet": True}
+        opts = yt_dlp_options(verbose)
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
         title = info.get("title") or ""
@@ -77,9 +117,9 @@ def scrape_manual(video_id: str, lang="en") -> List[Dict]:
 
 
 # ---------- 2. yt-dlp extractor ----------------------------------------- #
-def dlp_captions(url: str, lang="en", info: Dict = None) -> List[Dict]:
+def dlp_captions(url: str, lang="en", info: Dict = None, verbose: bool = False) -> List[Dict]:
     if info is None:
-        opts = {"skip_download": True, "quiet": True}
+        opts = yt_dlp_options(verbose)
         with YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
@@ -171,12 +211,12 @@ def main():
     configure_runtime(verbose)
 
     # Fetch metadata up front (best effort; won't crash the run if it fails)
-    meta, info = get_meta_and_info(url)
+    meta, info = get_meta_and_info(url, verbose=verbose)
 
     vid_id = vid(url)
     for step in (
         lambda: scrape_manual(vid_id),
-        lambda: dlp_captions(url, info=info),
+        lambda: dlp_captions(url, info=info, verbose=verbose),
         lambda: api_captions(vid_id),
     ):
         try:
