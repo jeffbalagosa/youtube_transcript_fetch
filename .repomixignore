@@ -2,3 +2,5 @@
 # Example:
 # *.log
 # tmp/
+
+.tempDevDocs/
