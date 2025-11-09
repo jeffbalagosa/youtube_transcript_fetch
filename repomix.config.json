@@ -4,7 +4,7 @@
     "maxFileSize": 52428800
   },
   "output": {
-    "filePath": "tempDevDocs/repomix-output.xml",
+    "filePath": ".tempDevDocs/youtube_transcript_fetch-repomix-output.xml",
     "style": "xml",
     "parsableStyle": false,
     "fileSummary": true,
