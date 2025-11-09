@@ -171,6 +171,34 @@ This means the video only has **auto-generated captions**, and you’re not the 
 
 ---
 
+## Tests
+
+This project uses Python's built-in `unittest` framework. Tests live in the `tests/` directory (for example `tests/test_main_cli.py`).
+
+Run tests from the project root. Example commands for Windows PowerShell (adjust if you use a different shell or virtual environment):
+
+```powershell
+# Activate virtualenv if you created one (PowerShell):
+.\.venv\Scripts\Activate.ps1
+
+# Run all tests verbosely
+python -m unittest discover -v tests
+
+# Or specify a pattern
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+Optional: run coverage (install `coverage` first):
+
+```powershell
+pip install coverage
+coverage run -m unittest discover -v tests
+coverage report -m
+coverage html   # opens a local report at htmlcov/index.html
+```
+
+Note: If you run tests outside a virtual environment, ensure your Python environment has the project dependencies installed (see the Installation section above).
+
 ## License
 
 MIT – Do whatever you want. No warranty, no guarantees.
