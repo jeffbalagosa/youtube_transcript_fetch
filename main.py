@@ -17,6 +17,17 @@ import requests
 import xml.etree.ElementTree as ET
 from typing import List, Dict
 
+# Summarization prompt (must match spec exactly)
+SUMMARIZE_PROMPT = (
+    "Act as an expert summarizer. Analyze the provided transcript and extract the most important key takeaways, "
+    "focusing on main ideas, insights, and actionable points. Present them as a concise bullet list.\n\n"
+    "Example Output:\n"
+    "- Key takeaway 1\n"
+    "- Key takeaway 2\n"
+    "- Key takeaway 3\n\n"
+    "Input:"
+)
+
 # 3rd-party deps
 from yt_dlp import YoutubeDL  # <-- new
 from youtube_transcript_api import (  # unchanged
@@ -213,6 +224,12 @@ def parse_args(argv: List[str] | None = None):
             "Show warnings emitted by the tool and dependencies."
         ),
     )
+    parser.add_argument(
+        "--summarize",
+        dest="summarize",
+        action="store_true",
+        help=("Prepend a fixed summarization prompt to stdout before the transcript."),
+    )
     return parser.parse_args(argv)
 
 
@@ -234,6 +251,7 @@ def main():
     url = args.url
     want_json = args.json
     verbose = args.verbose
+    summarize = getattr(args, "summarize", False)
 
     configure_runtime(verbose)
 
@@ -250,6 +268,10 @@ def main():
             lines = step()
             transcript = pretty(lines)
             if want_json:
+                if summarize:
+                    # Prompt must be printed on stdout separately (not embedded in JSON)
+                    print(SUMMARIZE_PROMPT)
+                    print()
                 print(json.dumps(
                     {
                         "title": meta["title"],
@@ -260,6 +282,10 @@ def main():
                 ))
             else:
                 # Human-friendly default that still pipes fine
+                if summarize:
+                    # Prompt must precede plain-text transcript and be followed by a blank line
+                    print(SUMMARIZE_PROMPT)
+                    print()
                 if meta["title"] or meta["channel"]:
                     # Print on separate lines so first token remains text
                     # when piping

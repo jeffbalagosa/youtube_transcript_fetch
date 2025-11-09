@@ -91,6 +91,19 @@ $ python main.py "<URL>" --json --verbose
 
 ---
 
+### Summarize mode
+
+Pass `--summarize` to prepend a fixed summarization prompt to stdout before the transcript (useful when piping the transcript into an LLM or other summarizer). The prompt is printed on stdout (not embedded in JSON) and is followed by a blank line, so it remains safe to pipe.
+
+```bash
+# Plain text with prompt
+python main.py "<URL>" --summarize
+
+# JSON output with prompt (prompt printed before JSON payload)
+python main.py "<URL>" --json --summarize
+```
+
+
 ## Pipe to Clipboard
 
 | OS      | Command example          |                          |

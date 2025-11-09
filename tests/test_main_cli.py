@@ -35,12 +35,24 @@ class TestCliArguments(unittest.TestCase):
         self.assertEqual(args.url, "https://youtu.be/dQw4w9WgXcQ")
         self.assertTrue(args.json)
         self.assertTrue(args.verbose)
+        # --summarize is opt-in and should be False by default
+        self.assertFalse(getattr(args, "summarize", False))
 
         # Ordering should not matter for flags.
         args = parse_args(["--verbose", "https://youtu.be/dQw4w9WgXcQ"])
         self.assertEqual(args.url, "https://youtu.be/dQw4w9WgXcQ")
         self.assertFalse(args.json)
         self.assertTrue(args.verbose)
+        self.assertFalse(getattr(args, "summarize", False))
+
+        # When explicitly supplied, --summarize should be True
+        args = parse_args([
+            "https://youtu.be/dQw4w9WgXcQ",
+            "--json",
+            "--verbose",
+            "--summarize",
+        ])
+        self.assertTrue(args.summarize)
 
     def test_parse_args_requires_url(self):
         """Missing positional URL should exit with an error."""
@@ -62,10 +74,10 @@ class TestCliArguments(unittest.TestCase):
 class TestWarningBehavior(unittest.TestCase):
     url = "https://youtu.be/dQw4w9WgXcQ"
 
-    def _run_main(self, *, verbose: bool, want_json: bool = False):
+    def _run_main(self, *, verbose: bool, want_json: bool = False, summarize: bool = False):
         main = load_module()
         fake_args = types.SimpleNamespace(
-            url=self.url, json=want_json, verbose=verbose
+            url=self.url, json=want_json, verbose=verbose, summarize=summarize
         )
 
         def manual_fail(_video_id: str):
@@ -127,6 +139,25 @@ class TestWarningBehavior(unittest.TestCase):
         out, err, api_mock = self._run_main(verbose=True, want_json=True)
         self.assertTrue(out.strip().startswith("{"))
         self.assertIn("manual warning", err)
+        self.assertEqual(0, api_mock.call_count)
+
+    def test_summarize_prepends_prompt_text(self):
+        """When --summarize is supplied, the prompt should appear before text output."""
+        main = load_module()
+        out, err, api_mock = self._run_main(verbose=False, want_json=False, summarize=True)
+        # Prompt should precede transcript and be followed by a blank line
+        self.assertTrue(out.startswith(main.SUMMARIZE_PROMPT + "\n\n"))
+        self.assertIn("[00:00]", out)
+        self.assertEqual(0, api_mock.call_count)
+
+    def test_summarize_prepends_prompt_json(self):
+        """When --json and --summarize are supplied, the prompt should precede JSON payload."""
+        main = load_module()
+        out, err, api_mock = self._run_main(verbose=False, want_json=True, summarize=True)
+        self.assertTrue(out.startswith(main.SUMMARIZE_PROMPT + "\n\n"))
+        # JSON follows the prompt
+        after_prompt = out[len(main.SUMMARIZE_PROMPT) + 2 :].strip()
+        self.assertTrue(after_prompt.startswith("{"))
         self.assertEqual(0, api_mock.call_count)
 
 
