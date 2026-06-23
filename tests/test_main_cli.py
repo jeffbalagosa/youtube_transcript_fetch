@@ -209,6 +209,7 @@ class TestYtDlpLogger(unittest.TestCase):
         self.assertTrue(params.get("quiet"))
         self.assertTrue(params.get("no_warnings"))
         self.assertIsNotNone(params.get("logger"))
+        self.assertTrue(params.get("ignore_no_formats_error"))
 
     def test_get_meta_and_info_emits_yt_dlp_warning_with_verbose(self):
         main = load_module()
@@ -229,6 +230,19 @@ class TestYtDlpLogger(unittest.TestCase):
         self.assertFalse(params.get("quiet"))
         self.assertFalse(params.get("no_warnings"))
         self.assertIsNotNone(params.get("logger"))
+        self.assertTrue(params.get("ignore_no_formats_error"))
+
+    def test_yt_dlp_options_ignore_unavailable_media_formats(self):
+        main = load_module()
+
+        opts = main.yt_dlp_options(verbose=False)
+
+        self.assertTrue(opts["skip_download"])
+        self.assertTrue(
+            opts.get("ignore_no_formats_error"),
+            "Caption extraction should not fail because yt-dlp cannot select "
+            "a playable video/audio format.",
+        )
 
 
 if __name__ == "__main__":

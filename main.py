@@ -91,6 +91,7 @@ def yt_dlp_options(verbose: bool) -> Dict:
     """Return common yt-dlp options tailored to verbosity preference."""
     return {
         "skip_download": True,
+        "ignore_no_formats_error": True,
         "quiet": not verbose,
         "no_warnings": not verbose,
         "logger": YtDlpLogger(verbose),
