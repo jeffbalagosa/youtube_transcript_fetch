@@ -15,28 +15,7 @@ import sys
 import json
 import requests
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 from typing import List, Dict
-
-
-@dataclass
-class FetchRequest:
-    url: str
-    video_id: str
-    info: Dict
-    verbose: bool
-    lang: str = "en"
-
-# Summarization prompt (must match spec exactly)
-SUMMARIZE_PROMPT = (
-    "Act as an expert summarizer. Analyze the provided transcript and extract the most important key takeaways, "
-    "focusing on main ideas, insights, and actionable points. Present them as a concise bullet list.\n\n"
-    "Example Output:\n"
-    "- Key takeaway 1\n"
-    "- Key takeaway 2\n"
-    "- Key takeaway 3\n\n"
-    "Input:"
-)
 
 # 3rd-party deps
 from yt_dlp import YoutubeDL  # <-- new
@@ -44,6 +23,18 @@ from youtube_transcript_api import (  # unchanged
     YouTubeTranscriptApi,
     NoTranscriptFound,
     TranscriptsDisabled,
+)
+
+# Summarization prompt (must match spec exactly)
+SUMMARIZE_PROMPT = (
+    "Act as an expert summarizer. Analyze the provided transcript and extract "
+    "the most important key takeaways, focusing on main ideas, insights, and "
+    "actionable points. Present them as a concise bullet list.\n\n"
+    "Example Output:\n"
+    "- Key takeaway 1\n"
+    "- Key takeaway 2\n"
+    "- Key takeaway 3\n\n"
+    "Input:"
 )
 
 
@@ -130,8 +121,8 @@ def get_meta_and_info(
 
 
 # ---------- 1. timedtext scrape ----------------------------------------- #
-def scrape_manual(request: FetchRequest) -> List[Dict]:
-    url = f"https://video.google.com/timedtext?lang={request.lang}&v={request.video_id}"
+def scrape_manual(video_id: str, lang="en") -> List[Dict]:
+    url = f"https://video.google.com/timedtext?lang={lang}&v={video_id}"
     r = requests.get(url, timeout=10)
     if not r.ok or not r.text.strip():
         raise RuntimeError("No manual captions.")
@@ -146,12 +137,16 @@ def scrape_manual(request: FetchRequest) -> List[Dict]:
 
 
 # ---------- 2. yt-dlp extractor ----------------------------------------- #
-def dlp_captions(request: FetchRequest) -> List[Dict]:
-    info = request.info
-    if not info:
-        opts = yt_dlp_options(request.verbose)
+def dlp_captions(
+    url: str,
+    lang: str = "en",
+    info: Dict = None,
+    verbose: bool = False,
+) -> List[Dict]:
+    if info is None:
+        opts = yt_dlp_options(verbose)
         with YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(request.url, download=False)
+            info = ydl.extract_info(url, download=False)
 
     for src in ("subtitles", "automatic_captions"):
         tracks = info.get(src, {})
@@ -159,7 +154,7 @@ def dlp_captions(request: FetchRequest) -> List[Dict]:
             continue
         # pick first matching track with a URL we can fetch (vtt or srv3)
         for code, lst in tracks.items():
-            if not code.startswith(request.lang):
+            if not code.startswith(lang):
                 continue
             for t in lst:
                 if t["ext"] in {"vtt", "srv3", "srv1"}:
@@ -193,16 +188,17 @@ def _parse_caption_url(url: str, ext: str) -> List[Dict]:
 
 
 # ---------- 3. youtube-transcript-api ----------------------------------- #
-def api_captions(request: FetchRequest) -> List[Dict]:
-    langs = (request.lang, f"{request.lang}-US", f"{request.lang}-GB")
+def api_captions(
+    video_id: str, langs=("en", "en-US", "en-GB")
+) -> List[Dict]:
     for lang in langs:
         try:
             return YouTubeTranscriptApi.get_transcript(
-                request.video_id, languages=[lang]
+                video_id, languages=[lang]
             )
         except (NoTranscriptFound, TranscriptsDisabled):
             continue
-    return YouTubeTranscriptApi.get_transcript(request.video_id)  # let it throw
+    return YouTubeTranscriptApi.get_transcript(video_id)  # let it throw
 
 
 # ---------- arg parsing -------------------------------------------------- #
@@ -264,17 +260,14 @@ def main():
     # Fetch metadata up front (best effort; won't crash the run if it fails)
     meta, info = get_meta_and_info(url, verbose=verbose)
 
-    request = FetchRequest(
-        url=url,
-        video_id=vid(url),
-        info=info,
-        verbose=verbose,
-    )
-
-    SOURCES = [scrape_manual, dlp_captions, api_captions]
-    for step in SOURCES:
+    vid_id = vid(url)
+    for step in (
+        lambda: scrape_manual(vid_id),
+        lambda: dlp_captions(url, info=info, verbose=verbose),
+        lambda: api_captions(vid_id),
+    ):
         try:
-            lines = step(request)
+            lines = step()
             transcript = pretty(lines)
             if want_json:
                 if summarize:
@@ -292,7 +285,7 @@ def main():
             else:
                 # Human-friendly default that still pipes fine
                 if summarize:
-                    # Prompt must precede plain-text transcript and be followed by a blank line
+                    # Prompt must precede transcript and be followed by a blank line
                     print(SUMMARIZE_PROMPT)
                     print()
                 if meta["title"] or meta["channel"]:

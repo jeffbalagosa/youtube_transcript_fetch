@@ -74,17 +74,21 @@ class TestCliArguments(unittest.TestCase):
 class TestWarningBehavior(unittest.TestCase):
     url = "https://youtu.be/dQw4w9WgXcQ"
 
-    def _run_main(self, *, verbose: bool, want_json: bool = False, summarize: bool = False):
+    def _run_main(
+        self, *, verbose: bool, want_json: bool = False, summarize: bool = False
+    ):
         main = load_module()
         fake_args = types.SimpleNamespace(
             url=self.url, json=want_json, verbose=verbose, summarize=summarize
         )
 
-        def manual_fail(_request):
+        def manual_fail(_video_id: str):
             warnings.warn("manual warning")
             raise RuntimeError("No manual captions.")
 
-        def dlp_success(_request):
+        def dlp_success(
+            _url: str, lang: str = "en", info=None, verbose: bool = False
+        ):
             warnings.warn("dlp warning")
             return [{"start": 0, "text": "hello world"}]
 
@@ -142,173 +146,25 @@ class TestWarningBehavior(unittest.TestCase):
     def test_summarize_prepends_prompt_text(self):
         """When --summarize is supplied, the prompt should appear before text output."""
         main = load_module()
-        out, err, api_mock = self._run_main(verbose=False, want_json=False, summarize=True)
+        out, err, api_mock = self._run_main(
+            verbose=False, want_json=False, summarize=True
+        )
         # Prompt should precede transcript and be followed by a blank line
         self.assertTrue(out.startswith(main.SUMMARIZE_PROMPT + "\n\n"))
         self.assertIn("[00:00]", out)
         self.assertEqual(0, api_mock.call_count)
 
     def test_summarize_prepends_prompt_json(self):
-        """When --json and --summarize are supplied, the prompt should precede JSON payload."""
+        """--json with --summarize prepends prompt before JSON payload."""
         main = load_module()
-        out, err, api_mock = self._run_main(verbose=False, want_json=True, summarize=True)
+        out, err, api_mock = self._run_main(
+            verbose=False, want_json=True, summarize=True
+        )
         self.assertTrue(out.startswith(main.SUMMARIZE_PROMPT + "\n\n"))
         # JSON follows the prompt
         after_prompt = out[len(main.SUMMARIZE_PROMPT) + 2 :].strip()
         self.assertTrue(after_prompt.startswith("{"))
         self.assertEqual(0, api_mock.call_count)
-
-
-class TestFetchRequest(unittest.TestCase):
-    def test_fetch_request_construction_and_lang_default(self):
-        """FetchRequest carries all source inputs; lang defaults to 'en'."""
-        main = load_module()
-        req = main.FetchRequest(
-            url="https://youtu.be/dQw4w9WgXcQ",
-            video_id="dQw4w9WgXcQ",
-            info={"title": "Test"},
-            verbose=False,
-        )
-        self.assertEqual(req.url, "https://youtu.be/dQw4w9WgXcQ")
-        self.assertEqual(req.video_id, "dQw4w9WgXcQ")
-        self.assertEqual(req.info, {"title": "Test"})
-        self.assertFalse(req.verbose)
-        self.assertEqual(req.lang, "en")
-
-    def test_fetch_request_lang_override(self):
-        """FetchRequest accepts an explicit lang value."""
-        main = load_module()
-        req = main.FetchRequest(
-            url="https://youtu.be/dQw4w9WgXcQ",
-            video_id="dQw4w9WgXcQ",
-            info={},
-            verbose=True,
-            lang="fr",
-        )
-        self.assertEqual(req.lang, "fr")
-
-    def test_scrape_manual_accepts_fetch_request(self):
-        """scrape_manual reads video_id and lang from FetchRequest."""
-        main = load_module()
-        req = main.FetchRequest(
-            url="https://youtu.be/dQw4w9WgXcQ",
-            video_id="dQw4w9WgXcQ",
-            info={},
-            verbose=False,
-            lang="fr",
-        )
-        captured = {}
-
-        def fake_get(url, timeout=10):
-            captured["url"] = url
-            raise RuntimeError("network stub")
-
-        with mock.patch.object(main.requests, "get", side_effect=fake_get):
-            with self.assertRaises(RuntimeError):
-                main.scrape_manual(req)
-
-        self.assertEqual(
-            captured["url"],
-            "https://video.google.com/timedtext?lang=fr&v=dQw4w9WgXcQ",
-        )
-
-    def test_dlp_captions_accepts_fetch_request(self):
-        """dlp_captions reads info and lang from FetchRequest; uses matching track."""
-        main = load_module()
-        info = {
-            "subtitles": {
-                "en": [{"ext": "vtt", "url": "http://fake/en.vtt"}]
-            },
-            "automatic_captions": {},
-        }
-        req = main.FetchRequest(
-            url="https://youtu.be/dQw4w9WgXcQ",
-            video_id="dQw4w9WgXcQ",
-            info=info,
-            verbose=False,
-        )
-        fake_segments = [{"start": 0, "text": "hello"}]
-
-        with mock.patch.object(
-            main, "_parse_caption_url", return_value=fake_segments
-        ) as mock_parse:
-            result = main.dlp_captions(req)
-
-        self.assertEqual(result, fake_segments)
-        mock_parse.assert_called_once_with("http://fake/en.vtt", "vtt")
-
-    def test_api_captions_accepts_fetch_request(self):
-        """api_captions reads video_id from FetchRequest."""
-        main = load_module()
-        req = main.FetchRequest(
-            url="https://youtu.be/dQw4w9WgXcQ",
-            video_id="dQw4w9WgXcQ",
-            info={},
-            verbose=False,
-        )
-        fake_segments = [{"start": 0, "text": "hi"}]
-
-        with mock.patch.object(
-            main.YouTubeTranscriptApi,
-            "get_transcript",
-            return_value=fake_segments,
-        ) as mock_api:
-            result = main.api_captions(req)
-
-        self.assertEqual(result, fake_segments)
-        args, kwargs = mock_api.call_args
-        self.assertEqual(args[0], "dQw4w9WgXcQ")
-
-
-class TestFallbackSequencing(unittest.TestCase):
-    url = "https://youtu.be/dQw4w9WgXcQ"
-
-    def test_manual_fails_dlp_succeeds_api_never_called(self):
-        """scrape_manual raises → dlp_captions gets same FetchRequest → api skipped."""
-        main = load_module()
-        received_requests = []
-
-        def manual_fail(req):
-            received_requests.append(("manual", req))
-            raise RuntimeError("No manual captions.")
-
-        fake_segments = [{"start": 0, "text": "hello"}]
-
-        def dlp_success(req):
-            received_requests.append(("dlp", req))
-            return fake_segments
-
-        fake_args = types.SimpleNamespace(
-            url=self.url, json=False, verbose=False, summarize=False
-        )
-        stdout = io.StringIO()
-
-        with mock.patch.object(main, "parse_args", return_value=fake_args), \
-             mock.patch.object(
-                 main, "get_meta_and_info",
-                 return_value=({"title": "", "channel": ""}, {}),
-             ), \
-             mock.patch.object(main, "scrape_manual", side_effect=manual_fail), \
-             mock.patch.object(main, "dlp_captions", side_effect=dlp_success), \
-             mock.patch.object(
-                 main, "api_captions",
-                 side_effect=AssertionError("api_captions must not be called"),
-             ), \
-             contextlib.redirect_stdout(stdout):
-            main.main()
-
-        self.assertEqual(len(received_requests), 2)
-        self.assertEqual(received_requests[0][0], "manual")
-        self.assertEqual(received_requests[1][0], "dlp")
-
-        req_manual = received_requests[0][1]
-        req_dlp = received_requests[1][1]
-        self.assertIsInstance(req_manual, main.FetchRequest)
-        self.assertIsInstance(req_dlp, main.FetchRequest)
-        self.assertEqual(req_manual.video_id, "dQw4w9WgXcQ")
-        self.assertEqual(req_dlp.video_id, "dQw4w9WgXcQ")
-        self.assertEqual(req_manual.url, self.url)
-        self.assertEqual(req_dlp.url, self.url)
 
 
 class TestYtDlpLogger(unittest.TestCase):
