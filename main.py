@@ -17,23 +17,24 @@ import requests
 import xml.etree.ElementTree as ET
 from typing import List, Dict
 
-# Summarization prompt (must match spec exactly)
-SUMMARIZE_PROMPT = (
-    "Act as an expert summarizer. Analyze the provided transcript and extract the most important key takeaways, "
-    "focusing on main ideas, insights, and actionable points. Present them as a concise bullet list.\n\n"
-    "Example Output:\n"
-    "- Key takeaway 1\n"
-    "- Key takeaway 2\n"
-    "- Key takeaway 3\n\n"
-    "Input:"
-)
-
 # 3rd-party deps
 from yt_dlp import YoutubeDL  # <-- new
 from youtube_transcript_api import (  # unchanged
     YouTubeTranscriptApi,
     NoTranscriptFound,
     TranscriptsDisabled,
+)
+
+# Summarization prompt (must match spec exactly)
+SUMMARIZE_PROMPT = (
+    "Act as an expert summarizer. Analyze the provided transcript and extract "
+    "the most important key takeaways, focusing on main ideas, insights, and "
+    "actionable points. Present them as a concise bullet list.\n\n"
+    "Example Output:\n"
+    "- Key takeaway 1\n"
+    "- Key takeaway 2\n"
+    "- Key takeaway 3\n\n"
+    "Input:"
 )
 
 
@@ -284,7 +285,7 @@ def main():
             else:
                 # Human-friendly default that still pipes fine
                 if summarize:
-                    # Prompt must precede plain-text transcript and be followed by a blank line
+                    # Prompt must precede transcript and be followed by a blank line
                     print(SUMMARIZE_PROMPT)
                     print()
                 if meta["title"] or meta["channel"]:
